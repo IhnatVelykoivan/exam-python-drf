@@ -1,0 +1,1353 @@
+{
+  "info": {
+    "name": "AutoRia Clone",
+    "description": "Full flow testing for AutoRia Clone — car marketplace platform.\n\nRun requests in order (1 → 40). Tokens and IDs are captured automatically via test scripts.\n\n**Credentials:**\n- Admin: admin@autoria.ua / Admin123!\n- Seller: seller@test.ua / Seller123!\n- Buyer: buyer@test.ua / Buyer123!\n- Manager: manager@test.ua / Manager123!\n\n**Base URL:** http://localhost:8000",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "admin_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "seller_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "seller_refresh",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "buyer_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "manager_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "seller_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "buyer_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "manager_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "listing_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "listing2_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "profanity_listing_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "brand_request_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "brand_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "run_id",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "1. Anonymous Access",
+      "item": [
+        {
+          "name": "1. List active listings (anonymous)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/listings/",
+            "description": "Anyone can browse listings without authentication."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Response has results array', () => pm.expect(pm.response.json()).to.have.property('results'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "2. List all car brands (anonymous)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/cars/brands",
+            "description": "Anyone can see all car brands. Expects 15 seeded brands."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const brands = pm.response.json();",
+                  "pm.test('Brands seeded', () => pm.expect(brands.length).to.be.above(0));",
+                  "if (brands.length > 0) pm.collectionVariables.set('brand_id', brands[0].id);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "2. Admin Setup",
+      "item": [
+        {
+          "name": "3. Admin login",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"admin@autoria.ua\", \"password\": \"Admin123!\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('admin_token', data.tokens.access);",
+                  "pm.test('Role is admin', () => pm.expect(data.user.role).to.equal('admin'));"
+                ]
+              }
+            },
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "// Generate a unique suffix for this run so test users are always fresh",
+                  "const rid = Date.now().toString().slice(-6);",
+                  "pm.collectionVariables.set('run_id', rid);",
+                  "pm.collectionVariables.set('manager_email', 'manager_' + rid + '@test.ua');",
+                  "pm.collectionVariables.set('seller_email',  'seller_'  + rid + '@test.ua');",
+                  "pm.collectionVariables.set('buyer_email',   'buyer_'   + rid + '@test.ua');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "4. List roles",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/roles/",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "description": "View all 4 roles: buyer, seller, manager, admin."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('4 roles exist', () => pm.expect(pm.response.json().results.length).to.equal(4));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "5. List permissions",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/roles/permissions",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "description": "View all 16 system permissions."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('16 permissions exist', () => pm.expect(pm.response.json().results.length).to.equal(16));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "6. Create manager (admin only)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/users/create-manager",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"manager_{{run_id}}@test.ua\", \"password\": \"Manager123!\", \"first_name\": \"Test\", \"last_name\": \"Manager\"}"
+            },
+            "description": "Only admin can create a manager account."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('manager_id', data.id);",
+                  "  pm.test('Role is manager', () => pm.expect(data.role.name).to.equal('manager'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "3. Registration",
+      "item": [
+        {
+          "name": "7. Register seller",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"seller_{{run_id}}@test.ua\", \"password\": \"Seller123!\", \"first_name\": \"Ivan\", \"last_name\": \"Seller\", \"phone\": \"+380501234567\", \"role_name\": \"seller\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('seller_id', data.user.id);",
+                  "  pm.collectionVariables.set('seller_token', data.tokens.access);",
+                  "  pm.collectionVariables.set('seller_refresh', data.tokens.refresh);",
+                  "  pm.test('Has access token', () => pm.expect(data.tokens.access).to.be.a('string'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "8. Register buyer",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/register",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"buyer_{{run_id}}@test.ua\", \"password\": \"Buyer123!\", \"first_name\": \"Petro\", \"last_name\": \"Buyer\", \"phone\": \"+380507654321\", \"role_name\": \"buyer\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "if (pm.response.code === 201) {",
+                  "  pm.collectionVariables.set('buyer_id', data.user.id);",
+                  "  pm.collectionVariables.set('buyer_token', data.tokens.access);",
+                  "} else {",
+                  "  pm.sendRequest({",
+                  "    url: pm.collectionVariables.get('base_url') + '/api/auth/login',",
+                  "    method: 'POST',",
+                  "    header: [{'key':'Content-Type','value':'application/json'}],",
+                  "    body: {mode:'raw', raw: JSON.stringify({email:pm.collectionVariables.get('buyer_email'), password:'Buyer123!'})}",
+                  "  }, function(err, res) {",
+                  "    if (!err && res.code === 200) {",
+                  "      const d = res.json();",
+                  "      pm.collectionVariables.set('buyer_id', d.user.id);",
+                  "      pm.collectionVariables.set('buyer_token', d.tokens.access);",
+                  "    }",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "4. Cars & Brand Requests",
+      "item": [
+        {
+          "name": "9. Seller login",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"seller_{{run_id}}@test.ua\", \"password\": \"Seller123!\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('seller_id', data.user.id);",
+                  "pm.collectionVariables.set('seller_token', data.tokens.access);",
+                  "pm.collectionVariables.set('seller_refresh', data.tokens.refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "10. Get models for BMW (brand_id=1)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/cars/brands/{{brand_id}}/models",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Browse models for a specific brand."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "11. Request new brand (seller)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/cars/brand-requests",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"brand_name\": \"Lamborghini\", \"model_name\": \"Urus\", \"comment\": \"Popular luxury SUV, please add to catalog\"}"
+            },
+            "description": "Seller requests a brand/model not yet in the catalog."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('brand_request_id', data.id);",
+                  "pm.test('Status is pending', () => pm.expect(data.status).to.equal('pending'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "12. Admin: list brand requests",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/cars/brand-requests",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "description": "Admin reviews pending brand requests."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "13. Admin: approve brand request",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/cars/brand-requests/{{brand_request_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"status\": \"approved\"}"
+            },
+            "description": "Admin approves the brand request — Lamborghini/Urus is added to the catalog automatically."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Status is approved', () => pm.expect(pm.response.json().status).to.equal('approved'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "14. Verify Lamborghini added to brands",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/cars/brands",
+            "description": "After approval, Lamborghini should appear in the brands list (now 16)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const brands = pm.response.json();",
+                  "pm.test('Lamborghini added, now 16 brands', () => pm.expect(brands.length).to.equal(16));",
+                  "const lam = brands.find(b => b.name === 'Lamborghini');",
+                  "pm.test('Lamborghini exists', () => pm.expect(lam).to.not.be.undefined);"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "5. Listings — Basic Account",
+      "item": [
+        {
+          "name": "15. Create listing (seller Basic, clean text)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/listings/",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"car_brand\": 1, \"car_model\": 1, \"year\": 2022, \"description\": \"BMW 3 Series 2022, excellent condition, full service history, leather interior\", \"original_price\": 35000, \"original_currency\": \"USD\", \"region\": 9, \"city\": \"Kyiv\", \"mileage\": 25000, \"engine_type\": \"gasoline\"}"
+            },
+            "description": "Clean description → status becomes 'active' immediately."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('listing_id', data.id);",
+                  "pm.test('Listing is active', () => pm.expect(data.status).to.equal('active'));",
+                  "pm.test('Price USD set', () => pm.expect(data.price_usd).to.not.be.null);",
+                  "pm.test('Price UAH set', () => pm.expect(data.price_uah).to.not.be.null);",
+                  "pm.test('Exchange rate recorded', () => pm.expect(data.rate_usd_uah).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "16. View listing detail (anonymous) — records a view",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/listings/{{listing_id}}",
+            "description": "Each GET on a listing detail records a view for statistics."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Prices in all currencies', () => {",
+                  "  pm.expect(data.price_usd).to.not.be.null;",
+                  "  pm.expect(data.price_eur).to.not.be.null;",
+                  "  pm.expect(data.price_uah).to.not.be.null;",
+                  "});",
+                  "pm.test('Original currency shown', () => pm.expect(data.original_currency).to.equal('USD'));",
+                  "pm.test('Exchange rate date recorded', () => pm.expect(data.rate_date).to.not.be.null);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "17. Check currency rates",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/currency/rates",
+            "description": "PrivatBank rates fetched on startup, updated daily via Celery."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('USD rate exists', () => pm.expect(data.some(r => r.ccy === 'USD')).to.be.true);",
+                  "pm.test('EUR rate exists', () => pm.expect(data.some(r => r.ccy === 'EUR')).to.be.true);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "18. Basic seller tries to create 2nd listing → 403",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/listings/",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"car_brand\": 2, \"car_model\": 7, \"year\": 2020, \"description\": \"Mercedes C-Class for sale\", \"original_price\": 28000, \"original_currency\": \"EUR\", \"region\": 9, \"city\": \"Kyiv\", \"mileage\": 40000, \"engine_type\": \"diesel\"}"
+            },
+            "description": "Basic account limit: only 1 listing allowed. Must return 403."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 — Basic limit enforced', () => pm.response.to.have.status(403));",
+                  "pm.test('Error message about premium', () => pm.expect(pm.response.json().detail).to.include('Basic account'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "6. Premium Account",
+      "item": [
+        {
+          "name": "19. Upgrade seller to Premium",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/users/upgrade-premium",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Seller upgrades account type from basic to premium."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Account is now premium', () => pm.expect(pm.response.json().account_type).to.equal('premium'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "20. Premium seller creates 2nd listing",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/listings/",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"car_brand\": 2, \"car_model\": 7, \"year\": 2020, \"description\": \"Mercedes C-Class 2020, diesel, panoramic roof, LED headlights\", \"original_price\": 28000, \"original_currency\": \"EUR\", \"region\": 12, \"city\": \"Lviv\", \"mileage\": 40000, \"engine_type\": \"diesel\"}"
+            },
+            "description": "Premium has no listing limit — second listing succeeds."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201 — Premium no limit', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('listing2_id', data.id);",
+                  "pm.test('Listing active', () => pm.expect(data.status).to.equal('active'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "7. Profanity Filter Flow",
+      "item": [
+        {
+          "name": "21. Create listing WITH profanity → needs_edit",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/listings/",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"car_brand\": 4, \"car_model\": 17, \"year\": 2019, \"description\": \"Toyota Camry хуйня повна продаю терміново\", \"original_price\": 20000, \"original_currency\": \"USD\", \"region\": 9, \"city\": \"Kyiv\", \"mileage\": 60000, \"engine_type\": \"gasoline\"}"
+            },
+            "description": "Profanity detected → status = needs_edit. Seller gets up to 3 edit attempts."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 201', () => pm.response.to.have.status(201));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('profanity_listing_id', data.id);",
+                  "pm.test('Status is needs_edit', () => pm.expect(data.status).to.equal('needs_edit'));",
+                  "pm.test('Edit attempts = 0', () => pm.expect(data.edit_attempts).to.equal(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "22. Edit listing — profanity again (attempt 1/3)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{profanity_listing_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"description\": \"Toyota Camry блять продаю терміново\"}"
+            },
+            "description": "Edit attempt 1 — still contains profanity. edit_attempts becomes 1."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Still needs_edit', () => pm.expect(data.status).to.equal('needs_edit'));",
+                  "pm.test('edit_attempts = 1', () => pm.expect(data.edit_attempts).to.equal(1));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "23. Edit listing — profanity again (attempt 2/3)",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{profanity_listing_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"description\": \"Toyota Camry сука гарна машина\"}"
+            },
+            "description": "Edit attempt 2 — still contains profanity. edit_attempts becomes 2."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Still needs_edit', () => pm.expect(data.status).to.equal('needs_edit'));",
+                  "pm.test('edit_attempts = 2', () => pm.expect(data.edit_attempts).to.equal(2));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "24. Edit listing — profanity again (attempt 3/3) → inactive",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{profanity_listing_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"description\": \"Toyota Camry хуй зна що за машина\"}"
+            },
+            "description": "Attempt 3 — 3rd failure → status becomes inactive. Email sent to manager (check app logs)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200 or 403', () => {",
+                  "  pm.expect([200, 403]).to.include(pm.response.code);",
+                  "});",
+                  "if (pm.response.code === 200) {",
+                  "  pm.test('Status inactive after 3 attempts', () => pm.expect(pm.response.json().status).to.equal('inactive'));",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "25. Seller tries to edit inactive listing → 403",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{profanity_listing_id}}",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"description\": \"Toyota Camry 2019, excellent clean car for sale\"}"
+            },
+            "description": "Inactive listing cannot be edited by seller — only manager/admin can reactivate."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 — inactive listing locked', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "8. Premium Statistics",
+      "item": [
+        {
+          "name": "26. View listing 3 more times (simulate traffic)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/listings/{{listing_id}}",
+            "description": "View the listing to generate statistics data."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "27. Premium statistics — full (views + avg prices)",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/statistics/listings/{{listing_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Premium seller sees full stats: views by period + average prices."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Views data present', () => pm.expect(data).to.have.property('views'));",
+                  "pm.test('Avg price region present', () => pm.expect(data).to.have.property('avg_price_region'));",
+                  "pm.test('Avg price Ukraine present', () => pm.expect(data).to.have.property('avg_price_ukraine'));",
+                  "pm.test('Total views > 0', () => pm.expect(data.views.total).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "28. Premium statistics — views only",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/statistics/listings/{{listing_id}}/views",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Views broken down by day, week, month."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Total views present', () => pm.expect(data).to.have.property('total'));",
+                  "pm.test('Today views present', () => pm.expect(data).to.have.property('today'));",
+                  "pm.test('Week views present', () => pm.expect(data).to.have.property('week'));",
+                  "pm.test('Month views present', () => pm.expect(data).to.have.property('month'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "29. Premium statistics — average prices",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/statistics/listings/{{listing_id}}/avg-price",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Average price in seller's region and across Ukraine."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.test('Region name present', () => pm.expect(data).to.have.property('region_name'));",
+                  "pm.test('Avg price by region present', () => pm.expect(data).to.have.property('avg_price_region'));",
+                  "pm.test('Avg price Ukraine present', () => pm.expect(data).to.have.property('avg_price_ukraine'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "30. Buyer tries statistics → 403",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/statistics/listings/{{listing_id}}",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{buyer_token}}"
+              }
+            ],
+            "description": "Buyer has basic account — statistics access denied."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 — no stats for basic/buyer', () => pm.response.to.have.status(403));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "31. Anonymous tries statistics → 401",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/statistics/listings/{{listing_id}}",
+            "description": "Unauthenticated access to statistics is denied."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "9. Manager Actions",
+      "item": [
+        {
+          "name": "32. Manager login",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"manager_{{run_id}}@test.ua\", \"password\": \"Manager123!\"}"
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const data = pm.response.json();",
+                  "pm.collectionVariables.set('manager_token', data.tokens.access);",
+                  "pm.test('Role is manager', () => pm.expect(data.user.role).to.equal('manager'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "33. Manager: list pending listings",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/listings/pending",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "description": "Manager sees all listings with needs_edit or inactive status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Pending listings visible', () => pm.expect(pm.response.json().results.length).to.be.above(0));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "34. Manager: activate inactive listing",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{profanity_listing_id}}/activate",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "description": "Manager manually activates a listing that failed profanity check."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Activation confirmed', () => pm.expect(pm.response.json().detail).to.include('activated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "35. Manager: deactivate listing",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/listings/{{listing_id}}/deactivate",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "description": "Manager deactivates a listing. Email notification is sent to the seller (check app logs for EMAIL_BACKEND=console)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Deactivation confirmed', () => pm.expect(pm.response.json().detail).to.include('deactivated'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "36. Manager: ban seller",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/users/{{seller_id}}/ban",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "description": "Manager bans a user — they can no longer log in."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Ban confirmed', () => pm.expect(pm.response.json().detail).to.include('banned'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "37. Banned seller tries to login → 403",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/login",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"email\": \"seller_{{run_id}}@test.ua\", \"password\": \"Seller123!\"}"
+            },
+            "description": "Banned account cannot login."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 403 — banned', () => pm.response.to.have.status(403));",
+                  "pm.test('Account is banned message', () => pm.expect(pm.response.json().detail).to.include('banned'));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "38. Manager: unban seller",
+          "request": {
+            "method": "PATCH",
+            "url": "{{base_url}}/api/users/{{seller_id}}/unban",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{manager_token}}"
+              }
+            ],
+            "description": "Manager restores access for a banned user."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('Unban confirmed', () => pm.expect(pm.response.json().detail).to.include('unbanned'));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "10. Final Checks",
+      "item": [
+        {
+          "name": "39. Seller: view my listings",
+          "request": {
+            "method": "GET",
+            "url": "{{base_url}}/api/listings/my",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "description": "Seller sees all their own listings regardless of status."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "40. Refresh access token",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/refresh",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refresh\": \"{{seller_refresh}}\"}"
+            },
+            "description": "Get a new access token using refresh token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "pm.test('New access token returned', () => pm.expect(pm.response.json()).to.have.property('access'));",
+                  "pm.collectionVariables.set('seller_token', pm.response.json().access);",
+                  "pm.collectionVariables.set('seller_refresh', pm.response.json().refresh);"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "41. Logout (blacklist refresh token)",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/logout",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{seller_token}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refresh\": \"{{seller_refresh}}\"}"
+            },
+            "description": "Blacklists the refresh token. After logout, refresh token cannot be reused."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 205 — logged out', () => pm.response.to.have.status(205));"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "42. Try refresh after logout → 401",
+          "request": {
+            "method": "POST",
+            "url": "{{base_url}}/api/auth/refresh",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\"refresh\": \"{{seller_refresh}}\"}"
+            },
+            "description": "Refresh token is blacklisted — cannot get new access token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 401 — token blacklisted', () => pm.response.to.have.status(401));"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
