@@ -53,16 +53,16 @@ On first start the app automatically:
 
 | Field | Value |
 |-------|-------|
-| Email | `admin@autoria.ua` |
-| Password | `Admin123!` |
+| Email | `your@email.example` |
+| Password | `your-password` |
 
 ### Test accounts (created by running the Postman collection)
 
 | Role | Email | Password |
 |------|-------|----------|
-| Seller | `seller@test.ua` | `Seller123!` |
-| Buyer | `buyer@test.ua` | `Buyer123!` |
-| Manager | `manager@test.ua` | `Manager123!` |
+| Seller | `your@email.example` | `your-password` |
+| Buyer | `your@email.example` | `your-password` |
+| Manager | `your@email.example` | `your-password` |
 
 ---
 
